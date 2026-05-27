@@ -1,6 +1,85 @@
+const translations = {
+  pt: {
+    lang: "pt-BR",
+    eyebrow: "Minha semana",
+    title: "Organizador da Semana",
+    subtitle: "Planeje tarefas, acompanhe prioridades e veja seu progresso em um só lugar.",
+    darkMode: "Modo escuro",
+    lightMode: "Modo claro",
+    doneLabel: "concluídas",
+    taskPlaceholder: "Adicionar tarefa...",
+    dayLabel: "Dia da semana",
+    priorityLabel: "Prioridade",
+    addButton: "Adicionar",
+    filterAll: "Todas",
+    filterToday: "Hoje",
+    filterPending: "Pendentes",
+    filterDone: "Concluídas",
+    empty: "Nada por aqui.",
+    taskSingular: "tarefa",
+    taskPlural: "tarefas",
+    markPending: "Marcar como pendente",
+    markDone: "Marcar como concluída",
+    removeTask: "Remover tarefa",
+    days: {
+      Segunda: "Segunda",
+      "Terça": "Terça",
+      Quarta: "Quarta",
+      Quinta: "Quinta",
+      Sexta: "Sexta",
+      "Sábado": "Sábado",
+      Domingo: "Domingo",
+    },
+    priorities: {
+      baixa: "baixa",
+      media: "média",
+      alta: "alta",
+    },
+  },
+  en: {
+    lang: "en",
+    eyebrow: "My week",
+    title: "Weekly Planner",
+    subtitle: "Plan tasks, track priorities, and follow your progress in one clear place.",
+    darkMode: "Dark mode",
+    lightMode: "Light mode",
+    doneLabel: "completed",
+    taskPlaceholder: "Add a task...",
+    dayLabel: "Day of the week",
+    priorityLabel: "Priority",
+    addButton: "Add",
+    filterAll: "All",
+    filterToday: "Today",
+    filterPending: "Pending",
+    filterDone: "Completed",
+    empty: "Nothing here yet.",
+    taskSingular: "task",
+    taskPlural: "tasks",
+    markPending: "Mark as pending",
+    markDone: "Mark as completed",
+    removeTask: "Remove task",
+    days: {
+      Segunda: "Monday",
+      "Terça": "Tuesday",
+      Quarta: "Wednesday",
+      Quinta: "Thursday",
+      Sexta: "Friday",
+      "Sábado": "Saturday",
+      Domingo: "Sunday",
+    },
+    priorities: {
+      baixa: "low",
+      media: "medium",
+      alta: "high",
+    },
+  },
+};
+
 const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+const priorities = ["media", "alta", "baixa"];
 const storageKey = "organizador-semana-tarefas";
 const themeKey = "organizador-semana-tema";
+const languageKey = "organizador-semana-idioma";
 
 const weekGrid = document.querySelector("#weekGrid");
 const taskInput = document.querySelector("#taskInput");
@@ -11,9 +90,15 @@ const doneCount = document.querySelector("#doneCount");
 const dayTemplate = document.querySelector("#dayTemplate");
 const filterButtons = document.querySelectorAll(".filter");
 const themeToggle = document.querySelector("#themeToggle");
+const languageSelect = document.querySelector("#languageSelect");
 
 let activeFilter = "todas";
+let currentLanguage = loadLanguage();
 let tasks = loadTasks();
+
+function t(key) {
+  return translations[currentLanguage][key];
+}
 
 function makeId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -21,6 +106,17 @@ function makeId() {
   }
 
   return `task-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeDay(day) {
+  const names = {
+    Terca: "Terça",
+    "TerÃ§a": "Terça",
+    Sabado: "Sábado",
+    "SÃ¡bado": "Sábado",
+  };
+
+  return names[day] || day;
 }
 
 function loadTasks() {
@@ -42,7 +138,9 @@ function loadTasks() {
 
   try {
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map((task) => ({ ...task, day: normalizeDay(task.day) }))
+      : [];
   } catch {
     return [];
   }
@@ -71,11 +169,32 @@ function getTodayName() {
 
 function visibleTasksFor(day) {
   return tasks.filter((task) => {
-    if (task.day !== day) return false;
+    const sameDay = normalizeDay(task.day) === day;
+
+    if (!sameDay) return false;
     if (activeFilter === "hoje") return day === getTodayName();
     if (activeFilter === "pendentes") return !task.done;
     if (activeFilter === "concluidas") return task.done;
     return true;
+  });
+}
+
+function renderOptions() {
+  dayInput.innerHTML = "";
+  priorityInput.innerHTML = "";
+
+  days.forEach((day) => {
+    const option = document.createElement("option");
+    option.value = day;
+    option.textContent = t("days")[day];
+    dayInput.append(option);
+  });
+
+  priorities.forEach((priority) => {
+    const option = document.createElement("option");
+    option.value = priority;
+    option.textContent = t("priorities")[priority];
+    priorityInput.append(option);
   });
 }
 
@@ -91,8 +210,8 @@ function render() {
     const list = column.querySelector(".task-list");
     const dayTasks = visibleTasksFor(day);
 
-    title.textContent = day;
-    total.textContent = `${dayTasks.length} tarefa${dayTasks.length === 1 ? "" : "s"}`;
+    title.textContent = t("days")[day];
+    total.textContent = `${dayTasks.length} ${dayTasks.length === 1 ? t("taskSingular") : t("taskPlural")}`;
 
     if (activeFilter === "hoje" && day !== getTodayName()) {
       article.hidden = true;
@@ -101,7 +220,7 @@ function render() {
     if (dayTasks.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty";
-      empty.textContent = "Nada por aqui.";
+      empty.textContent = t("empty");
       list.append(empty);
     }
 
@@ -120,8 +239,8 @@ function createTaskElement(task) {
   const check = document.createElement("button");
   check.className = "check";
   check.type = "button";
-  check.title = task.done ? "Marcar como pendente" : "Marcar como concluída";
-  check.textContent = task.done ? "✓" : "";
+  check.title = task.done ? t("markPending") : t("markDone");
+  check.textContent = task.done ? "\u2713" : "";
   check.addEventListener("click", () => toggleTask(task.id));
 
   const content = document.createElement("div");
@@ -132,15 +251,15 @@ function createTaskElement(task) {
 
   const priority = document.createElement("span");
   priority.className = `priority ${task.priority}`;
-  priority.textContent = task.priority === "media" ? "média" : task.priority;
+  priority.textContent = t("priorities")[task.priority] || task.priority;
 
   content.append(title, priority);
 
   const remove = document.createElement("button");
   remove.className = "delete";
   remove.type = "button";
-  remove.title = "Remover tarefa";
-  remove.textContent = "×";
+  remove.title = t("removeTask");
+  remove.textContent = "\u00d7";
   remove.addEventListener("click", () => deleteTask(task.id));
 
   item.append(check, content, remove);
@@ -170,9 +289,7 @@ function addTask() {
 }
 
 function toggleTask(id) {
-  tasks = tasks.map((task) =>
-    task.id === id ? { ...task, done: !task.done } : task
-  );
+  tasks = tasks.map((task) => (task.id === id ? { ...task, done: !task.done } : task));
   saveTasks();
   render();
 }
@@ -183,10 +300,47 @@ function deleteTask(id) {
   render();
 }
 
+function applyLanguage() {
+  document.documentElement.lang = t("lang");
+  languageSelect.value = currentLanguage;
+  taskInput.placeholder = t("taskPlaceholder");
+  dayInput.setAttribute("aria-label", t("dayLabel"));
+  priorityInput.setAttribute("aria-label", t("priorityLabel"));
+
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+
+  const selectedDay = dayInput.value || "Segunda";
+  const selectedPriority = priorityInput.value || "media";
+
+  renderOptions();
+
+  dayInput.value = selectedDay;
+  priorityInput.value = selectedPriority;
+
+  applyTheme(loadTheme());
+  render();
+}
+
+function loadLanguage() {
+  try {
+    return localStorage.getItem(languageKey) || "pt";
+  } catch {
+    return "pt";
+  }
+}
+
+function saveLanguage(language) {
+  try {
+    localStorage.setItem(languageKey, language);
+  } catch {}
+}
+
 function applyTheme(theme) {
   const isDark = theme === "dark";
   document.body.classList.toggle("dark-theme", isDark);
-  themeToggle.textContent = isDark ? "Modo claro" : "Modo escuro";
+  themeToggle.textContent = isDark ? t("lightMode") : t("darkMode");
   themeToggle.setAttribute("aria-pressed", String(isDark));
 }
 
@@ -216,6 +370,12 @@ themeToggle.addEventListener("click", () => {
   saveTheme(nextTheme);
 });
 
+languageSelect.addEventListener("change", () => {
+  currentLanguage = languageSelect.value;
+  saveLanguage(currentLanguage);
+  applyLanguage();
+});
+
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     filterButtons.forEach((item) => item.classList.remove("active"));
@@ -225,5 +385,4 @@ filterButtons.forEach((button) => {
   });
 });
 
-applyTheme(loadTheme());
-render();
+applyLanguage(); 
